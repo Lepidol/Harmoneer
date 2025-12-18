@@ -1,23 +1,41 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jaspearl Harmoneer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --periwinkle: #818cf8;
+            --white: #ffffff;
+            --void-bg: #010204;
+            --panel-bg: rgba(6, 8, 18, 0.65); /* More transparent for frosted effect */
+            --border-glow: rgba(129, 140, 248, 0.3);
+        }
+
         body {
-            background-color: #020617; /* Slate 950 */
+            background-color: var(--void-bg);
             color: #e2e8f0;
             overflow: hidden;
             touch-action: none;
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Space Grotesk', sans-serif;
             margin: 0;
             padding: 0;
         }
 
+        /* --- Atmospheric Effects --- */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%); 
+            z-index: 100;
+            pointer-events: none;
+        }
 
-        /* --- Main Canvas --- */
         #canvas-container {
             width: 100vw;
             height: 100vh;
@@ -27,739 +45,495 @@
             will-change: transform; 
         }
 
+        #canvas-container:active { cursor: grabbing; }
 
-        #canvas-container:active {
-            cursor: grabbing;
-        }
-
-
-        /* Peripheral (Vignette + Aberration) Overlay */
         #peripheral-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             pointer-events: none;
-            z-index: 2;
-            /* Gradient: Clear in middle (50%), fades to Slate 950 at edges */
-            background: radial-gradient(circle at center, transparent 50%, #020617 100%);
+            z-index: 5;
+            background: radial-gradient(circle at center, transparent 30%, rgba(1, 4, 9, 0.5) 70%, #010204 100%);
             opacity: 0; 
-            transition: opacity 0.5s;
+            transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #peripheral-overlay.active { opacity: 1; }
 
-
-        /* Chromatic Aberration Styles (Activated by body class) */
-        body.aberration-active .node-label {
-            text-shadow: 0.5px 0 rgba(255, 0, 0, 0.5), -0.5px 0 rgba(0, 255, 255, 0.5);
-        }
-        
-        body.aberration-active .node-circle {
-            box-shadow: 0.5px 0 rgba(255,0,0,0.3), -0.5px 0 rgba(0,255,255,0.3);
-        }
-        
-        body.aberration-active .node-active circle.node-circle {
-             filter: drop-shadow(0.5px 0 0 rgba(255,0,0,0.5)) drop-shadow(-0.5px 0 0 rgba(0,255,255,0.5)) drop-shadow(0 0 15px currentColor);
-        }
-
-
-        svg {
-            width: 100%;
-            height: 100%;
-            user-select: none;
-            overflow: visible; 
-            shape-rendering: geometricPrecision;
-            text-rendering: optimizeLegibility;
-        }
-
-
-        /* --- Lattice Elements --- */
-        .connection-line {
-            stroke: #1e293b; 
-            stroke-width: 1.5px;
-            vector-effect: non-scaling-stroke; 
-        }
-
-
-        /* Ghost Plane Styling */
-        .ghost-plane .connection-line {
-            stroke: #475569; 
-            stroke-dasharray: 4 4; 
-            stroke-width: 1px;
-            opacity: 0.2; 
-        }
-        .ghost-plane .node-circle {
-            stroke-dasharray: none; 
-            stroke-opacity: 0.6;    
-            fill-opacity: 0.05;
-        }
-        .ghost-plane .node-label {
-            opacity: 0.5;
-        }
-        .ghost-plane .node-selector {
-            display: none;
-        }
-
-
-        /* --- Animation for Ghost Entrance --- */
-        @keyframes nodePop {
-            0% { transform: scale(0); opacity: 0; }
-            40% { transform: scale(1.4); opacity: 1; filter: brightness(2) drop-shadow(0 0 10px white); }
-            100% { transform: scale(1); opacity: 1; filter: brightness(1); }
-        }
-
-
-        @keyframes nodeFade {
-            0% { transform: scale(0.9); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-
-        .node-ghost-flash .node-circle {
-            animation: nodePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-            transform-origin: center;
-            transform-box: fill-box;
-        }
-
-
-        .node-ghost-subtle .node-circle {
-            animation: nodeFade 0.2s ease-out forwards;
-            transform-origin: center;
-            transform-box: fill-box;
-        }
-
-
+        /* --- Node & Lattice Styling --- */
         .node-circle {
-            fill: #0f172a; 
-            stroke: #334155; 
-            stroke-width: 2px;
+            fill: #010409; 
+            stroke: var(--white);
+            stroke-opacity: 0.6;
+            stroke-width: 1.5px;
             transition: all 0.1s ease-out;
         }
 
-
-        .node-selector {
-            fill: none;
-            stroke: none;
+        .connection-line {
+            stroke: var(--white);
+            stroke-opacity: 0.15;
+            stroke-width: 1px;
+            vector-effect: non-scaling-stroke; 
             pointer-events: none;
-            transition: all 0.1s;
         }
 
-
-        .node-label-container {
-            width: 40px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            pointer-events: none;
-            overflow: visible;
+        /* Special Node (Z-axis / 7th) */
+        .node-special circle.node-circle {
+            stroke-dasharray: 2 2;
+            fill-opacity: 0.1;
         }
 
-
-        .node-label {
-            color: #64748b; 
-            font-size: 10px;
-            font-weight: 600;
-            font-family: monospace;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-            transition: color 0.1s;
-            white-space: nowrap;
+        /* Juicy Active State */
+        .node-active circle.node-circle {
+            stroke: currentColor !important; 
+            fill: currentColor !important;
+            fill-opacity: 0.25 !important; 
+            stroke-width: 2px !important;
+            stroke-opacity: 1 !important;
+            filter: drop-shadow(0 0 5px currentColor) 
+                    drop-shadow(0 0 15px currentColor) 
+                    drop-shadow(0 0 30px currentColor) 
+                    brightness(1.8);
+        }
+        
+        .node-active .node-label {
+            color: #ffffff !important; 
+            font-weight: 900;
+            text-shadow: 0 0 8px rgba(0,0,0,1), 0 0 15px currentColor;
+            font-size: 12px;
         }
 
+        .node-highlight circle.node-circle {
+            stroke-width: 2.5px;
+            stroke-opacity: 1;
+        }
+
+        .ghost-plane .connection-line {
+            stroke-opacity: 0.05;
+            stroke-dasharray: 4 4;
+        }
+        .ghost-plane .node-circle {
+            stroke-opacity: 0.15;
+        }
 
         .back-flat { display: inline-block; transform: scaleX(-1); }
         .half-sharp { font-weight: bold; }
 
-
-        /* --- State Styling --- */
-        .node-highlight circle.node-circle {
-            fill-opacity: 0.3 !important; 
-            stroke-width: 3px;
-            filter: drop-shadow(0 0 8px currentColor);
-        }
-        .node-highlight .node-label { color: #e2e8f0; font-weight: 700; }
-
-
-        .node-active circle.node-circle {
-            filter: drop-shadow(0 0 15px currentColor);
-            fill-opacity: 0.8 !important;
-            stroke-width: 3px;
-            stroke: #ffffff !important; 
-        }
-        .node-active .node-label { color: #ffffff; font-weight: 800; }
-
-
-        .node-target .node-selector {
-            stroke: #ffffff;
-            stroke-dasharray: 4 4;
-            stroke-width: 2px;
-            opacity: 0.5;
-        }
-        .node-target .node-circle { filter: brightness(1.5); }
-
-
-        .node-h7 circle { stroke-width: 2px; filter: drop-shadow(0 0 10px currentColor); }
-
-
-        #ghost-cursor-group circle {
-            stroke: #ffffff;
-            stroke-dasharray: 4 4;
-            stroke-width: 2px;
-            fill: rgba(255, 255, 255, 0.05);
-            opacity: 0.8;
-            pointer-events: none;
-            filter: drop-shadow(0 0 4px rgba(255,255,255,0.5));
-        }
-        
-        #extrusion-line {
-            stroke: #ffffff;
-            stroke-width: 2px;
-            stroke-dasharray: 4 4;
-            opacity: 0; 
-            pointer-events: none;
-            transition: opacity 0.2s;
+        /* --- UI Panels (Frosted Glass HUD) --- */
+        .hud-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            position: relative;
         }
 
-
-        /* --- UI Overlay --- */
-        #settings-wrapper {
-            position: fixed;
-            top: 20px; left: 20px;
-            z-index: 100;
-            pointer-events: auto;
+        /* Default Corners (Top-Left / Bottom-Right) for bottom panels */
+        .hud-panel.bottom-panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .hud-panel.bottom-panel::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+        .hud-panel.bottom-panel::before, .hud-panel.bottom-panel::after {
+            content: ""; position: absolute; width: 12px; height: 12px;
+            border-color: var(--periwinkle); border-style: solid; pointer-events: none; opacity: 0.8;
         }
-
-
-        #gear-btn {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(4px);
-            border: 1px solid #475569;
-            color: #94a3b8;
-            width: 44px; height: 44px;
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        #gear-btn:hover { background: #334155; color: #ffffff; transform: rotate(90deg); }
-
-
-        #settings-menu {
-            position: absolute;
-            top: 55px; left: 0;
-            width: 260px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(12px);
-            border: 1px solid #334155;
-            border-radius: 16px;
-            padding: 16px;
-            display: none; 
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-        }
-        #settings-menu.visible { display: flex; animation: slideDown 0.2s ease-out; }
-
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-
-        .preset-select {
-            background: #1e293b; color: #e2e8f0;
-            border: 1px solid #475569; border-radius: 8px;
-            padding: 8px; font-size: 0.9rem; width: 100%;
-            outline: none; cursor: pointer;
-        }
-
 
         #ui-layer {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            pointer-events: none; z-index: 50;
+            position: absolute; bottom: 40px; left: 0; width: 100%;
+            pointer-events: none; z-index: 200;
             display: flex; justify-content: center;
             align-items: flex-end;
-            padding-bottom: 20px;
-            gap: 16px;
+            gap: 32px;
         }
-
 
         .panel-box {
             pointer-events: auto;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid #334155;
-            backdrop-filter: blur(8px);
-            border-radius: 24px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.4);
-            /* Transition for OPENING (Maximize) */
-            /* 1. Width expands first (0s) -> "Compresses out from button" */
-            /* 2. Height expands second (0.3s) -> "Bottom glides down" */
-            /* Updated to use ease-out for smoother feel */
-            transition: 
-                max-width 0.3s cubic-bezier(0.2, 0, 0.2, 1) 0s,
-                max-height 0.3s cubic-bezier(0.2, 0, 0.2, 1) 0.25s,
-                padding 0.3s ease 0.25s,
-                border-radius 0.3s ease 0s,
-                background 0.3s;
-            
-            overflow: hidden;
-            max-width: 500px;
-            max-height: 600px;
+            border-radius: 2px;
+            padding: 24px;
+            display: flex; flex-direction: column; gap: 20px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            min-width: 300px; overflow: hidden;
         }
 
-
-        /* Minimized State for Panels */
         .panel-box.minimized {
-            /* Match Minimize Button Size (24px) + Border */
-            max-height: 26px; 
-            max-width: 26px; 
-            padding: 0;
-            border-radius: 50%;
-            /* Match standard panel colors */
-            background: rgba(15, 23, 42, 0.6);
-            border-color: #334155; 
-            cursor: pointer;
-            
-            /* Transition for CLOSING (Minimize) */
-            /* 1. Height collapses first (0s) -> "Top glides down" */
-            /* 2. Width collapses second (0.3s) -> "Compresses into button" */
-            transition: 
-                max-height 0.3s cubic-bezier(0.2, 0, 0.2, 1) 0s,
-                padding 0.3s ease 0s,
-                max-width 0.3s cubic-bezier(0.2, 0, 0.2, 1) 0.25s,
-                border-radius 0.3s ease 0.25s,
-                background 0.3s,
-                border-color 0.3s;
+            min-width: 28px; width: 28px; max-height: 28px; height: 28px;
+            padding: 0; border-radius: 50%;
+            justify-content: center; align-items: center;
+            background: rgba(129, 140, 248, 0.1);
+            border-color: var(--periwinkle); cursor: pointer;
+            backdrop-filter: blur(10px);
         }
+
+        .panel-box.minimized .panel-header h3, 
+        .panel-box.minimized .panel-content { display: none; opacity: 0; }
         
-        .panel-box.minimized:hover {
-            background: #334155; 
-            border-color: #60a5fa;
-            box-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
-            transform: none; 
-        }
-
-
         .panel-box.minimized .panel-header {
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            justify-content: center;
-            align-items: center;
+            margin: 0; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
         }
-        
-        .panel-box.minimized .panel-header h3 { 
-            display: none; 
-            opacity: 0; 
-        }
-        
-        .panel-box.minimized .minimize-btn {
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            border: none;
-            font-size: 1rem;
-            color: #94a3b8;
-            padding: 0;
-            display: flex; align-items: center; justify-content: center;
-        }
-        
-        .panel-box.minimized:hover .minimize-btn {
-            color: white;
-        }
-        
-        .panel-content {
-            opacity: 1;
-            transition: opacity 0.2s ease-out;
-        }
-        
-        /* Hide content immediately on minimize so it doesn't clip uglily */
-        .panel-box.minimized .panel-content {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.1s ease-out;
-        }
-
 
         .panel-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 4px;
-            min-height: 24px;
+            display: flex; justify-content: space-between; align-items: center; width: 100%;
         }
 
-
+        .panel-header h3 {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.4em; color: var(--periwinkle);
+            text-shadow: 0 0 10px rgba(129, 140, 248, 0.3);
+        }
+        
         .minimize-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent; border: none; color: var(--periwinkle);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            padding: 4px; transition: all 0.2s;
+        }
+        .minimize-btn:hover { transform: scale(1.1); text-shadow: 0 0 8px currentColor; }
+
+        /* --- Settings Module (Morphing) --- */
+        #settings-module {
+            position: fixed; top: 32px; left: 32px; z-index: 300;
+            background: var(--panel-bg);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid rgba(129, 140, 248, 0.2);
+            transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                        height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), 
+                        border-radius 0.3s ease;
+            width: 56px; height: 56px; /* Collapsed size */
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform-origin: center;
+        }
+
+        /* Default Corners: Top-Right / Bottom-Left */
+        #settings-module::before, #settings-module::after {
+            content: ""; position: absolute; width: 12px; height: 12px;
+            border-color: var(--periwinkle); border-style: solid; pointer-events: none; opacity: 0.8;
+            transition: all 0.3s;
+        }
+        
+        /* Collapsed Corners: Top Right & Bottom Left */
+        #settings-module:not(.expanded)::before { 
+            top: -1px; right: -1px; left: auto; bottom: auto;
+            border-width: 2px 2px 0 0; 
+        }
+        #settings-module:not(.expanded)::after { 
+            bottom: -1px; left: -1px; right: auto; top: auto;
+            border-width: 0 0 2px 2px; 
+        }
+
+        /* Expanded Corners: Top Left & Bottom Right */
+        #settings-module.expanded::before { 
+            top: -1px; left: -1px; right: auto; bottom: auto;
+            border-width: 2px 0 0 2px; 
+        }
+        #settings-module.expanded::after { 
+            bottom: -1px; right: -1px; left: auto; top: auto;
+            border-width: 0 2px 2px 0; 
+        }
+
+        /* Hover on collapsed module: Box rotates Left (-90) */
+        #settings-module:not(.expanded):hover {
+            transform: rotate(-90deg);
+            border-color: var(--periwinkle);
+            box-shadow: 0 0 25px rgba(129, 140, 248, 0.4);
+        }
+        
+        /* Hover on collapsed: Gear rotates Right (+90 visual result) */
+        #settings-module:not(.expanded):hover #gear-icon {
+            transform: translate(-50%, -50%) rotate(180deg); 
+        }
+
+        #gear-icon {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 28px; height: 28px;
             color: #94a3b8;
-            width: 24px; height: 24px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1rem; cursor: pointer; line-height: 1;
-            padding: 0;
-            transition: all 0.2s;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s, color 0.3s;
+            pointer-events: none;
+        }
+
+        #settings-module.expanded {
+            width: 340px; height: auto;
+            cursor: default;
+            transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                        height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        border-radius 0.3s ease;
+            transform: rotate(0deg) !important;
+            border-color: rgba(129, 140, 248, 0.5);
+        }
+
+        #settings-module.expanded #gear-icon {
+            animation: gear-spin-fade 0.4s forwards;
+        }
+
+        @keyframes gear-spin-fade {
+            0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) rotate(360deg); opacity: 0; }
         }
         
-        /* Settings Hover Style */
-        .minimize-btn:hover { 
-            background: #334155; 
-            color: #ffffff; 
-            border-color: #475569;
+        #settings-module:not(.expanded) #gear-icon.sprouting {
+            animation: gear-sprout 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes gear-sprout {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(-180deg); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
         }
 
-
-        .controls-section {
-            display: flex; flex-direction: column; gap: 10px;
-            min-width: 180px;
+        #settings-content {
+            padding: 32px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease 0.1s;
+            display: flex; flex-direction: column; gap: 20px;
         }
 
+        #settings-module.expanded #settings-content {
+            opacity: 1;
+            pointer-events: auto;
+        }
 
-        .controls-section.wide-section {
-            min-width: 300px;
+        /* --- Ratio HUD (Top Right) --- */
+        #ratio-hud {
+            position: fixed;
+            top: 40px; right: 40px;
+            text-align: right;
+            pointer-events: none;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 1s ease-out;
         }
         
-        .sound-controls-inner {
-            display: flex;
-            gap: 16px;
-        }
-        .sound-col {
-            flex: 1; display: flex; flex-direction: column; gap: 8px;
-        }
-
-
-        .slider-group {
-            display: flex; align-items: center; justify-content: space-between;
-            font-size: 0.8rem; color: #94a3b8; font-weight: 500;
+        #ratio-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 4rem;
+            font-weight: 800;
+            color: var(--white);
+            text-shadow: 0 0 30px var(--periwinkle);
+            letter-spacing: -0.05em;
+            line-height: 1;
         }
 
+        /* --- Generic UI Elements --- */
+        .hud-btn {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+            padding: 14px; border-radius: 1px; transition: all 0.3s;
+            text-transform: uppercase; letter-spacing: 0.2em; position: relative;
+        }
+        .hud-btn:hover { background: rgba(129, 140, 248, 0.08); color: #f1f5f9; border-color: rgba(129, 140, 248, 0.4); }
+        .hud-btn.active {
+            background: rgba(129, 140, 248, 0.15); border-color: var(--periwinkle);
+            color: var(--periwinkle); box-shadow: 0 0 20px rgba(129, 140, 248, 0.2);
+            text-shadow: 0 0 10px var(--periwinkle);
+        }
 
         input[type=range] {
-            width: 90px; height: 6px;
-            background: #334155; border-radius: 3px;
-            -webkit-appearance: none; outline: none;
+            -webkit-appearance: none; background: rgba(255, 255, 255, 0.1);
+            height: 2px; border-radius: 0; width: 100%;
         }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 16px; height: 16px;
-            border-radius: 50%; background: #60a5fa;
-            cursor: pointer; transition: transform 0.1s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); background: #93c5fd; }
-
-
-        .settings-row {
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.8rem; color: #94a3b8;
+            -webkit-appearance: none; height: 14px; width: 6px;
+            background: var(--periwinkle); cursor: pointer;
+            box-shadow: 0 0 15px var(--periwinkle);
         }
 
+        /* Start Screen */
+        #start-overlay { background: var(--void-bg); z-index: 1000; }
+        #start-overlay h1 { font-family: 'JetBrains Mono', monospace; letter-spacing: 0.6em; text-shadow: 0 0 60px rgba(129, 140, 248, 0.5); }
+        #start-btn {
+            font-family: 'JetBrains Mono', monospace; letter-spacing: 0.6em;
+            text-transform: uppercase; border: 2px solid var(--periwinkle);
+            background: transparent; padding: 1.5rem 5rem; font-size: 0.9rem;
+            position: relative; overflow: hidden; transition: all 0.5s; color: var(--periwinkle);
+        }
+        #start-btn:hover { background: var(--periwinkle); color: #000; box-shadow: 0 0 80px var(--periwinkle); }
 
-        .toggle-btn {
-            background: #1e293b; border: 1px solid #475569;
-            color: #cbd5e1; font-size: 0.8rem; padding: 4px 12px;
-            border-radius: 6px; cursor: pointer; transition: all 0.2s;
+        .terminal-toast { border-left: 3px solid var(--periwinkle); padding-left: 1.5rem; font-family: 'JetBrains Mono', monospace; }
+        .warning-frame {
+            border: 2px solid #ff0055; background: rgba(20, 0, 5, 0.95);
+            box-shadow: 0 0 60px rgba(255, 0, 85, 0.4); animation: glitch-border 0.15s infinite alternate;
         }
-        .toggle-btn.active { background: #2563eb; color: white; border-color: #60a5fa; }
-
-
-        .chord-grid { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); 
-            gap: 8px; 
-            /* Fix clipping of key hints */
-            margin-top: 6px; 
-        }
-        .chord-btn {
-            background: #1e293b; border: 2px solid transparent;
-            color: #94a3b8; font-size: 0.8rem; font-weight: 600;
-            padding: 8px 12px; border-radius: 9999px; cursor: pointer;
-            text-align: center; transition: all 0.2s; position: relative;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            display: flex; align-items: center; justify-content: center;
-        }
-        .chord-btn span.key-hint {
-            position: absolute; top: -6px; right: -4px;
-            background: #475569; color: white; font-size: 0.6rem;
-            padding: 2px 6px; border-radius: 10px; font-family: monospace;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .chord-btn:hover { background: #334155; transform: translateY(-2px); }
-        .chord-btn.active {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white; border-color: rgba(255,255,255,0.2);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); transform: translateY(-1px);
+        @keyframes glitch-border {
+            0% { border-color: #ff0055; transform: scale(1); }
+            100% { border-color: #ff6a00; transform: scale(1.02); }
         }
 
-
-        #start-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(2, 6, 23, 0.95);
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+        .node-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em;
+            text-transform: uppercase; pointer-events: none; color: #64748b; 
         }
 
-
-        #startup-toast {
-            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.9); border: 1px solid #60a5fa;
-            color: #bfdbfe; padding: 16px 24px; border-radius: 12px;
-            text-align: center; font-size: 1.1rem; pointer-events: none;
-            opacity: 0; transition: opacity 0.5s; z-index: 60;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23818cf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 5 3 3 3-3'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 1rem center;
         }
-        #startup-toast.visible { opacity: 1; }
-
-
-        /* --- Dimension Warning --- */
-        #dimension-warning {
-            position: fixed;
-            top: 25%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
-            pointer-events: none;
-            z-index: 200;
-            text-align: center;
-            opacity: 0;
-            transition: opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-        }
-        #dimension-warning.active {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-        .warning-glitch {
-            color: #ef4444;
-            font-family: monospace;
-            font-weight: 900;
-            font-size: 1.4rem;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            text-shadow: 2px 0 #fff, -2px 0 #000;
-            background: rgba(15, 23, 42, 0.9);
-            padding: 16px 32px;
-            border: 1px solid #ef4444;
-            border-radius: 4px;
-            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.2);
-            backdrop-filter: blur(4px);
-        }
-        .warning-sub {
-            color: #f87171;
-            font-size: 0.8rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            font-weight: 700;
-            text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
-        }
-
-
-        h3 {
-            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
-            color: #94a3b8; margin: 0; font-weight: 700;
-        }
-        .menu-title { font-size: 0.8rem; color: #e2e8f0; font-weight: 700; margin-bottom: 4px; display: block; }
-
-
     </style>
 </head>
 <body class="aberration-active">
 
-
     <div id="peripheral-overlay" class="active"></div>
 
-
     <!-- Start Overlay -->
-    <div id="start-overlay">
-        <h1 class="text-5xl font-bold mb-4 text-white tracking-tight">Infinite <span class="text-blue-500">JI</span> Lattice</h1>
-        <button id="start-btn" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full transition hover:scale-105 shadow-lg shadow-blue-900/50">
-            Initiate
+    <div id="start-overlay" class="fixed inset-0 flex flex-col items-center justify-center transition-all duration-1000">
+        <div class="mb-6 opacity-40 text-[11px] tracking-[1.2em] font-mono text-indigo-300">Created by Garrett Valentine</div>
+        <h1 class="text-4xl md:text-7xl font-light mb-20 text-white text-center">JASPEARL <span class="font-bold">HARMONEER</span></h1>
+        <button id="start-btn" class="transition-all duration-700 hover:scale-110">
+            INITIATE
         </button>
     </div>
 
-
-    <!-- Temporary Startup Guide -->
-    <div id="startup-toast">
-        Use the arrows, &lt;, &gt; to Pivot<br>
-        <strong>SPACE</strong> to Select<br>
-        <strong>B</strong> Bass, <strong>D</strong> Drone, <strong>S</strong> Sustain
+    <!-- Startup Guide -->
+    <div id="startup-toast" class="fixed top-1/4 left-1/2 -translate-x-1/2 hud-panel bottom-panel p-12 shadow-2xl opacity-0 pointer-events-none transition-opacity duration-1000 z-50">
+        <div class="terminal-toast">
+            <p class="text-[10px] uppercase tracking-[0.6em] text-indigo-400 mb-8 font-bold">// Controls</p>
+            <div class="text-[12px] space-y-5 text-slate-400 uppercase tracking-[0.3em]">
+                <p><span class="text-white">PIVOT</span> using the arrows or &lt; / &gt;</p>
+                <p><span class="text-white">SELECT</span> using the spacebar</p>
+                <p><span class="text-white">TOGGLE</span> B / D / S</p>
+            </div>
+        </div>
     </div>
-
 
     <!-- Dimension Warning -->
-    <div id="dimension-warning">
-        <div class="warning-glitch">⚠ Warning ⚠</div>
-        <div class="warning-sub">Pivoting into extra dimensions</div>
+    <div id="dimension-warning" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[200] opacity-0 scale-90 transition-all duration-700">
+        <div class="warning-frame px-16 py-8 text-center">
+            <div class="font-mono text-2xl font-bold uppercase tracking-[0.4em] text-red-500">⚠️SPECTRAL SHIFT⚠️</div>
+            <div class="text-red-400 text-[9px] tracking-[0.7em] uppercase mt-4 font-bold opacity-80">ACCESSING HIGHER DIMENSIONAL LATTICE</div>
+        </div>
+    </div>
+
+    <!-- Ratio HUD -->
+    <div id="ratio-hud">
+        <div id="ratio-display">1/1</div>
     </div>
     
-    <!-- Top Left Settings -->
-    <div id="settings-wrapper">
-        <button id="gear-btn" title="Synth Settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-        <div id="settings-menu">
-            <!-- 1. Volume -->
-            <div class="settings-row">
-                <span class="menu-title" style="margin:0;">Volume</span>
+    <!-- Settings Module (Top Left) -->
+    <div id="settings-module">
+        <div id="gear-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div id="settings-content">
+            <div class="flex flex-col gap-3">
+                <span class="text-[9px] uppercase tracking-[0.4em] text-slate-500 font-bold">SYSTEM VOLUME</span>
                 <input type="range" id="master-vol" min="0" max="1" step="0.01" value="0.3">
             </div>
-
-
-            <div class="w-full h-px bg-slate-700 my-3"></div>
-
-
-            <!-- 2. Peripheral (Vignette + Aberration) -->
-            <div class="settings-row">
-                <span>Peripheral</span>
-                <button id="vignette-toggle" class="toggle-btn active">On</button>
+            <div class="flex items-center justify-between">
+                <span class="text-[9px] uppercase tracking-[0.4em] text-slate-500 font-bold">PERIPHERAL</span>
+                <button id="vignette-toggle" class="text-[10px] px-5 py-2 border border-indigo-500/40 text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10">On</button>
             </div>
-
-
-            <div class="w-full h-px bg-slate-700 my-3"></div>
-
-
-            <!-- 3. Sound Wave -->
-            <div>
-                <span class="menu-title">Sound Wave</span>
-                <select id="preset-select" class="preset-select">
-                    <option value="sine" selected>Sine</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="square">Square</option>
-                    <option value="sawtooth">Sawtooth</option>
-                    <option value="rich_pad">Rich Pad</option>
-                    <option value="hyper_saw">Hyper Saw</option>
-                    <option value="analog_strings">Analog Strings</option>
-                    <option value="glass_pad">Glass Pad</option>
-                    <option value="deep_pulse">Deep Pulse</option>
-                    <option value="custom">Custom Mix</option>
+            <div class="flex items-center justify-between">
+                <span class="text-[9px] uppercase tracking-[0.4em] text-slate-500 font-bold">RATIO HUD</span>
+                <button id="ratio-toggle" class="text-[10px] px-5 py-2 border border-indigo-500/40 text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10">On</button>
+            </div>
+            <div class="h-px bg-indigo-500/20"></div>
+            <div class="flex flex-col gap-3">
+                <span class="text-[9px] uppercase tracking-[0.4em] text-slate-500 font-bold">WAVEFORM</span>
+                <select id="preset-select" class="w-full bg-slate-900/80 border border-indigo-500/30 text-[11px] p-4 rounded-none outline-none text-slate-300 font-mono tracking-[0.2em] uppercase">
+                    <option value="sine" selected>SINE</option>
+                    <option value="triangle">TRIANGLE</option>
+                    <option value="square">SQUARE</option>
+                    <option value="sawtooth">SAWTOOTH</option>
+                    <option value="rich_pad">RICH PAD</option>
+                    <option value="hyper_saw">HYPER SAW</option>
+                    <option value="analog_strings">ANALOG STRINGS</option>
+                    <option value="glass_pad">GLASS PAD</option>
+                    <option value="deep_pulse">DEEP PULSE</option>
                 </select>
             </div>
-
-
-            <!-- Custom Mixer -->
-            <div id="custom-mixer" style="display: none;" class="flex-col gap-2 mt-4">
-                <span class="menu-title">Oscillators</span>
-                <div class="mixer-slider-group">
-                    <div class="mixer-label">Sine <span id="val-sine" class="mixer-val">0%</span></div>
-                    <input type="range" id="mix-sine" min="0" max="1" step="0.05" value="0">
-                </div>
-                <div class="mixer-slider-group">
-                    <div class="mixer-label">Triangle <span id="val-triangle" class="mixer-val">100%</span></div>
-                    <input type="range" id="mix-triangle" min="0" max="1" step="0.05" value="1">
-                </div>
-                <div class="mixer-slider-group">
-                    <div class="mixer-label">Sawtooth <span id="val-sawtooth" class="mixer-val">0%</span></div>
-                    <input type="range" id="mix-sawtooth" min="0" max="1" step="0.05" value="0">
-                </div>
-                <div class="mixer-slider-group">
-                    <div class="mixer-label">Square <span id="val-square" class="mixer-val">0%</span></div>
-                    <input type="range" id="mix-square" min="0" max="1" step="0.05" value="0">
-                </div>
-            </div>
         </div>
     </div>
 
-
-    <!-- UI Layer -->
+    <!-- UI HUD Panels (Bottom) -->
     <div id="ui-layer">
-        <!-- Sound Panel -->
-        <div class="panel-box" id="sound-panel">
+        <div class="panel-box hud-panel bottom-panel minimized" id="sound-panel">
             <div class="panel-header">
-                <h3>Sound Controls</h3>
-                <button class="minimize-btn" title="Minimize">−</button>
+                <h3>Synth</h3>
+                <button class="minimize-btn" title="Toggle Panel">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+                </button>
             </div>
-            <div class="panel-content">
-                <div class="controls-section wide-section">
-                    <div class="sound-controls-inner">
-                        <!-- Column 1: Sliders -->
-                        <div class="sound-col">
-                            <div class="slider-group">
-                                <span>Attack</span>
-                                <input type="range" id="atk-slider" min="0.01" max="2" step="0.01" value="0.05">
-                            </div>
-                            <div class="slider-group">
-                                <span>Decay</span>
-                                <input type="range" id="dec-slider" min="0.1" max="4" step="0.1" value="0.5">
-                            </div>
-                            <div class="slider-group">
-                                <span>Glide (Drone)</span>
-                                <input type="range" id="drone-glide" min="0" max="1" step="0.01" value="0.5" title="Drone Transition Speed (Seconds)">
-                            </div>
-                        </div>
-
-
-                        <!-- Column 2: Toggles -->
-                        <div class="sound-col">
-                            <div class="chord-grid">
-                                <button id="sustain-btn" class="chord-btn">Sustain</button>
-                                <button id="bass-btn" class="chord-btn">Bass</button>
-                                <button id="drone-btn" class="chord-btn">Drone</button>
-                            </div>
-                        </div>
+            <div class="panel-content flex gap-12">
+                <div class="flex flex-col gap-6 flex-1 min-w-[180px]">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex justify-between items-center"><label class="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-bold">Attack</label></div>
+                        <input type="range" id="atk-slider" min="0.01" max="2" step="0.01" value="0.05">
                     </div>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex justify-between items-center"><label class="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-bold">Decay</label></div>
+                        <input type="range" id="dec-slider" min="0.1" max="4" step="0.1" value="0.5">
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex justify-between items-center"><label class="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-bold">Glide [Drone]</label></div>
+                        <input type="range" id="drone-glide" min="0" max="250" step="1" value="125">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3">
+                    <button id="sustain-btn" class="hud-btn">Sustain</button>
+                    <button id="bass-btn" class="hud-btn">Bass</button>
+                    <button id="drone-btn" class="hud-btn">Drone</button>
                 </div>
             </div>
         </div>
 
-
-        <!-- Chord Panel -->
-        <div class="panel-box" id="chord-panel">
+        <div class="panel-box hud-panel bottom-panel minimized" id="chord-panel">
             <div class="panel-header">
-                <h3>Chord Type</h3>
-                <button class="minimize-btn" title="Minimize">−</button>
+                <h3>Chords</h3>
+                <button class="minimize-btn" title="Toggle Panel">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+                </button>
             </div>
             <div class="panel-content">
-                <div class="controls-section">
-                    <div class="chord-grid">
-                        <button class="chord-btn active" data-key="1"><span class="key-hint">1</span>Major</button>
-                        <button class="chord-btn" data-key="2"><span class="key-hint">2</span>Minor</button>
-                        <button class="chord-btn" data-key="3"><span class="key-hint">3</span>Power</button>
-                        <button class="chord-btn" data-key="q"><span class="key-hint">Q</span>Maj 7</button>
-                        <button class="chord-btn" data-key="w"><span class="key-hint">W</span>Min 7</button>
-                        <button class="chord-btn" data-key="e"><span class="key-hint">E</span>Dom 7</button>
-                    </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <button class="hud-btn active" data-key="1">Maj</button>
+                    <button class="hud-btn" data-key="2">Min</button>
+                    <button class="hud-btn" data-key="3">P5</button>
+                    <button class="hud-btn" data-key="q">Maj7</button>
+                    <button class="hud-btn" data-key="w">Min7</button>
+                    <button class="hud-btn" data-key="e">H7</button>
                 </div>
             </div>
         </div>
     </div>
-
 
     <!-- Main Canvas -->
     <div id="canvas-container">
-        <svg id="main-svg" preserveAspectRatio="xMidYMid slice">
-            <g id="world-group">
+        <svg id="main-svg" style="width:100%; height:100%; overflow: visible;" preserveAspectRatio="xMidYMid slice">
+            <g id="world-group" style="overflow: visible;">
                 <g id="grid-lines"></g>
                 <g id="grid-nodes"></g>
                 <g id="ghost-cursor-group" style="display: none;">
-                    <line id="extrusion-line" x1="0" y1="0" x2="0" y2="0"></line>
-                    <circle id="ghost-cursor-circle" r="22"></circle>
+                    <line id="extrusion-line" x1="0" y1="0" x2="0" y2="0" stroke="var(--white)" stroke-width="1" stroke-dasharray="4 4"></line>
+                    <circle id="ghost-cursor-circle" r="22" fill="rgba(129, 140, 248, 0.05)" stroke="var(--white)" stroke-width="1.5" stroke-dasharray="2 4"></circle>
                 </g>
                 <g id="special-nodes"></g> 
             </g>
         </svg>
     </div>
 
-
     <script>
+        /* --- DOM REFERENCES --- */
+        const container = document.getElementById('canvas-container');
+        const worldGroup = document.getElementById('world-group');
+        const nodesG = document.getElementById('grid-nodes');
+        const linesG = document.getElementById('grid-lines');
+        const specialNodesG = document.getElementById('special-nodes');
+        const ghostGroup = document.getElementById('ghost-cursor-group');
+        const extrusionLine = document.getElementById('extrusion-line');
+        const ratioHud = document.getElementById('ratio-hud');
+        const ratioDisplay = document.getElementById('ratio-display');
+
         /* --- CONSTANTS & CONFIG --- */
         const SPACING_X = 120;
         const SPACING_Y = 120; 
-        const SKEW_OFFSET = 0; 
-        
         const Z_OFFSET_X = 30;
         const Z_OFFSET_Y = -20;
-
-
         const BASE_FREQ = 261.63; 
-        
         const RATIO_X = 1.5; 
         const RATIO_Y = 1.25; 
         const RATIO_Z = 1.75; 
-
-
-        const RENDER_BUFFER = 800; 
-
+        const RENDER_BUFFER = 1000; 
 
         const CHORD_TYPES = {
             '1': { name: 'Major', shape: [{dx:0,dy:0,dz:0}, {dx:1,dy:0,dz:0}, {dx:0,dy:1,dz:0}] },
@@ -775,15 +549,12 @@
             'triangle': { type: 'simple', triangle: 1 },
             'square': { type: 'simple', square: 1 },
             'sawtooth': { type: 'simple', sawtooth: 1 },
-            'custom': { type: 'custom' },
-            'rich_pad': { type: 'rich_pad', gainMod: 0.3 },
-            'hyper_saw': { type: 'hyper_saw', gainMod: 0.25 },
-            'analog_strings': { type: 'analog_strings', gainMod: 0.35 },
-            'glass_pad': { type: 'glass_pad', gainMod: 0.4 },
-            'deep_pulse': { type: 'deep_pulse', gainMod: 0.3 },
-            'airy_drone': { type: 'airy_drone', gainMod: 0.4 }
+            'rich_pad': { type: 'rich_pad', gainMod: 0.2 },
+            'hyper_saw': { type: 'hyper_saw', gainMod: 0.15 },
+            'analog_strings': { type: 'analog_strings', gainMod: 0.25 },
+            'glass_pad': { type: 'glass_pad', gainMod: 0.3 },
+            'deep_pulse': { type: 'deep_pulse', gainMod: 0.2 }
         };
-
 
         const APPROX_NOTE_LABELS = [
             "C", "C<span class='half-sharp'>‡</span>", "C♯", "D<span class='back-flat'>♭</span>", 
@@ -794,884 +565,576 @@
             "B♭", "B<span class='back-flat'>♭</span>", "B", "B<span class='half-sharp'>‡</span>"
         ];
 
-
-        /* --- STATE --- */
         const state = {
-            audioCtx: null,
-            gainNode: null, 
-            isAudioStarted: false,
+            audioCtx: null, gainNode: null, isAudioStarted: false,
             activeVoices: new Map(),
-            
-            // Camera
-            // Adjusted View Y to move content UP (+50px from center baseline)
-            viewX: -window.innerWidth / 2,
-            viewY: -window.innerHeight / 2 + 50, 
-            targetViewX: -window.innerWidth / 2,
-            targetViewY: -window.innerHeight / 2 + 50,
-            
-            // Zoom Config
-            zoom: 1.5,
-            targetZoom: 1.5,
-
-
-            lastRenderX: -99999,
-            lastRenderY: -99999,
-            lastRenderZoom: 0,
-            lastRenderZ: -999,
-            lastRenderCursorZ: -999,
-
-
-            hasFlashedGhost: false, // Track if we've ever shown the intro flash
-            
-            nodeCache: new Map(), 
-            lineCache: new Map(),
-
-
-            cursor: { x: 0, y: 0, z: 0 }, 
-            visualCursor: { x: 0, y: 0 }, 
-            playedRoot: { x: 0, y: 0, z: 0 },   
-            
-            attack: 0.05,
-            decay: 0.5,
-            sustain: false,
-            bassEnabled: false,
-            droneEnabled: false,
-            droneGlideTime: 0.5, // Seconds
-            peripheralEnabled: true, // Enabled by default
-            masterVol: 0.3,
-            
-            synthMix: { ...SYNTH_PRESETS['sine'] }, // Default to Sine
-            customMixValues: { sine: 0, triangle: 1, square: 0, sawtooth: 0 },
-
-
-            currentChordKey: '1', 
-            isDragging: false,
-            lastMouse: { x: 0, y: 0 }
+            viewX: -window.innerWidth / 2, viewY: -window.innerHeight / 2 + 50, 
+            targetViewX: -window.innerWidth / 2, targetViewY: -window.innerHeight / 2 + 50,
+            zoom: 1.5, targetZoom: 1.5,
+            lastRenderX: -99999, lastRenderY: -99999, lastRenderZoom: 0,
+            lastRenderZ: -999, lastRenderCursorZ: -999,
+            hasFlashedGhost: false, nodeCache: new Map(), lineCache: new Map(),
+            cursor: { x: 0, y: 0, z: 0 }, visualCursor: { x: 0, y: 0 }, playedRoot: { x: 0, y: 0, z: 0 },
+            referenceRoot: { x: 0, y: 0, z: 0 },
+            attack: 0.05, decay: 0.5, sustain: false, bassEnabled: false, droneEnabled: false,
+            droneGlideTime: 0.125, droneCurrentFreq: null, peripheralEnabled: true, ratioEnabled: true, masterVol: 0.3,
+            synthMix: { ...SYNTH_PRESETS['sine'] },
+            currentChordKey: '1', isDragging: false, lastMouse: { x: 0, y: 0 },
+            ratioFadeTimeout: null, hasOpenedPanels: false
         };
 
+        /* --- RENDERING --- */
+        function renderGridContent() {
+            state.lastRenderZ = state.playedRoot.z; 
+            state.lastRenderCursorZ = state.cursor.z; state.lastRenderX = state.viewX; state.lastRenderY = state.viewY;
+            const buffer = RENDER_BUFFER / state.zoom;
+            const l = state.viewX - (window.innerWidth/(2*state.zoom)) - buffer;
+            const r = state.viewX + (window.innerWidth/(2*state.zoom)) + buffer;
+            const t = state.viewY - (window.innerHeight/(2*state.zoom)) - buffer;
+            const b = state.viewY + (window.innerHeight/(2*state.zoom)) + buffer;
+            const activeZ = state.playedRoot.z; const ghostZ = state.cursor.z;
+            const planes = [...new Set([activeZ, ghostZ])];
+            const visible = new Set();
+            const visibleLines = new Set();
 
-        /* --- AUDIO ENGINE --- */
+            planes.forEach(z => {
+                const c1 = getGridCoords(l, t, z); const c2 = getGridCoords(r, b, z);
+                const startX = Math.floor(Math.min(c1.x, c2.x));
+                const endX = Math.ceil(Math.max(c1.x, c2.x));
+                const startY = Math.floor(Math.min(c1.y, c2.y));
+                const endY = Math.ceil(Math.max(c1.y, c2.y));
+
+                for (let y = startY; y <= endY; y++) {
+                    for (let x = startX; x <= endX; x++) {
+                        const id = `node_${x}_${y}_${z}`; visible.add(id);
+                        if (!state.nodeCache.has(id)) {
+                            createNode(x, y, z, nodesG);
+                        }
+                        const lh = `line_${x}_${y}_${z}_h`; const lv = `line_${x}_${y}_${z}_v`;
+                        visibleLines.add(lh); visibleLines.add(lv);
+                        if (!state.lineCache.has(lh)) createLine(x, y, z, x+1, y, z, 'h', linesG);
+                        if (!state.lineCache.has(lv)) createLine(x, y, z, x, y+1, z, 'v', linesG);
+                    }
+                }
+            });
+            
+            if (ghostZ !== activeZ && !state.hasFlashedGhost) {
+                state.hasFlashedGhost = true;
+                const w = document.getElementById('dimension-warning');
+                w.style.opacity = '1'; w.style.transform = 'translate(-50%, -50%) scale(1)';
+                setTimeout(() => { w.style.opacity = '0'; w.style.transform = 'translate(-50%, -50%) scale(0.9)'; }, 3000);
+            }
+
+            for (const [id, el] of state.nodeCache) {
+                if (!visible.has(id)) { el.remove(); state.nodeCache.delete(id); }
+                else el.classList.toggle('ghost-plane', parseInt(id.split('_')[3]) !== activeZ);
+            }
+            for (const [id, el] of state.lineCache) {
+                if (!visibleLines.has(id)) { el.remove(); state.lineCache.delete(id); }
+                else el.classList.toggle('ghost-plane', parseInt(id.split('_')[3]) !== activeZ);
+            }
+
+            updateVisuals();
+        }
+
+        /* --- AUDIO & SYSTEM INIT --- */
         function initAudio() {
             if (state.isAudioStarted) return;
             const AC = window.AudioContext || window.webkitAudioContext;
             state.audioCtx = new AC();
-            
             const compressor = state.audioCtx.createDynamicsCompressor();
             compressor.threshold.setValueAtTime(-12, state.audioCtx.currentTime);
-            
             state.gainNode = state.audioCtx.createGain();
             state.gainNode.gain.value = state.masterVol;
-            
             state.gainNode.connect(compressor);
             compressor.connect(state.audioCtx.destination);
-
-
             state.isAudioStarted = true;
+            
             document.getElementById('start-overlay').style.opacity = '0';
-            setTimeout(() => document.getElementById('start-overlay').remove(), 600);
-
-
+            document.getElementById('start-overlay').style.pointerEvents = 'none';
+            setTimeout(() => document.getElementById('start-overlay').remove(), 1000);
+            
             const toast = document.getElementById('startup-toast');
-            toast.classList.add('visible');
-            setTimeout(() => toast.classList.remove('visible'), 5000);
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 6000);
+            
+            // Auto-expand panels AFTER toast disappears (6500ms)
+            if (!state.hasOpenedPanels) {
+                setTimeout(() => {
+                    document.querySelectorAll('.panel-box.minimized').forEach(p => {
+                        p.classList.remove('minimized');
+                        const btn = p.querySelector('.minimize-btn');
+                        if (btn) btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>';
+                    });
+                    state.hasOpenedPanels = true;
+                    centerCameraOnChord(); 
+                }, 6500); 
+            }
             
             state.visualCursor = getScreenCoords(state.cursor.x, state.cursor.y, state.cursor.z);
-            
-            forceRender();
-            requestAnimationFrame(animate);
-            updateVisuals();
+            renderGridContent(); 
+            requestAnimationFrame(animate); 
+            updateVisuals(); 
             centerCameraOnChord();
         }
 
-
+        /* --- HELPERS --- */
         function getFrequency(x, y, z) {
             let ratio = Math.pow(RATIO_X, x) * Math.pow(RATIO_Y, y) * Math.pow(RATIO_Z, z);
-            while (ratio < 1) ratio *= 2;
-            while (ratio >= 2) ratio /= 2;
+            while (ratio < 1) ratio *= 2; while (ratio >= 2) ratio /= 2;
             return BASE_FREQ * ratio; 
         }
 
-
         function getNoteLabelHTML(x, y, z) {
             const cents = (x * 701.955) + (y * 386.314) + (z * 968.826);
-            const normalized = ((cents % 1200) + 1200) % 1200;
-            const index = Math.round(normalized / 50) % 24;
+            const index = Math.round((((cents % 1200) + 1200) % 1200) / 50) % 24;
             return APPROX_NOTE_LABELS[index];
         }
 
-
         function getNoteHue(x, y, z) {
             const cents = (x * 701.955) + (y * 386.314) + (z * 968.826);
-            const normalized = ((cents % 1200) + 1200) % 1200;
-            const index = Math.round(normalized / 50) % 24; 
-            const hue = (index - 16) * 15;
-            return hue;
+            const index = Math.round((((cents % 1200) + 1200) % 1200) / 50) % 24; 
+            return (index - 16) * 15;
         }
 
+        function getRatioString(x, y, z) {
+            let num = 1; let den = 1;
+            if (x > 0) num *= Math.pow(3, x); else if (x < 0) den *= Math.pow(3, Math.abs(x));
+            if (y > 0) num *= Math.pow(5, y); else if (y < 0) den *= Math.pow(5, Math.abs(y));
+            if (z > 0) num *= Math.pow(7, z); else if (z < 0) den *= Math.pow(7, Math.abs(z));
+            let ratio = num / den;
+            while (ratio < 1) { ratio *= 2; num *= 2; }
+            while (ratio >= 2) { ratio /= 2; den *= 2; }
+            const gcd = (a, b) => b ? gcd(b, a % b) : a;
+            const common = gcd(num, den);
+            return `${num/common}/${den/common}`;
+        }
+
+        function showRatio(newRoot) {
+            if (!state.ratioEnabled) return;
+            const dx = newRoot.x - state.referenceRoot.x;
+            const dy = newRoot.y - state.referenceRoot.y;
+            const dz = newRoot.z - state.referenceRoot.z;
+            if (dx === 0 && dy === 0 && dz === 0) return;
+
+            const rStr = getRatioString(dx, dy, dz);
+            ratioDisplay.textContent = rStr;
+            ratioHud.style.opacity = '1';
+            
+            if (state.ratioFadeTimeout) clearTimeout(state.ratioFadeTimeout);
+            state.ratioFadeTimeout = setTimeout(() => {
+                ratioHud.style.opacity = '0';
+            }, 4000);
+
+            state.referenceRoot = { ...newRoot };
+        }
 
         function createVoice(freq, startTime, isDrone = false) {
-            const ctx = state.audioCtx;
-            const mix = state.synthMix;
-            
-            const gain = ctx.createGain();
-            const att = mix.attack || parseFloat(state.attack);
+            const ctx = state.audioCtx; const mix = state.synthMix;
+            const gain = ctx.createGain(); const att = mix.attack || parseFloat(state.attack);
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(mix.gainMod || 0.3, startTime + att);
-            
-            let outputNode = gain;
-            let oscs = [];
+            let outputNode = gain; let oscs = [];
 
-
-            // 1. Generate Source Oscillators
-            
             if (mix.type === 'rich_pad') {
-                const f1 = ctx.createBiquadFilter(); f1.type = "bandpass"; f1.frequency.value = 750; f1.Q.value = 1;
-                const f2 = ctx.createBiquadFilter(); f2.type = "peaking"; f2.frequency.value = 1400; f2.Q.value = 3; f2.gain.value = 8;
-                gain.connect(f1); f1.connect(f2); outputNode = f2;
-
-
-                const lfo = ctx.createOscillator(); lfo.frequency.value = 5;
-                const lfoGain = ctx.createGain(); lfoGain.gain.value = 5; lfo.connect(lfoGain); lfo.start(startTime);
-
-
-                const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = freq;
-                lfoGain.connect(o1.frequency); o1.connect(gain); o1.start(startTime); oscs.push(o1);
-
-
-                const o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = freq; o2.detune.value = 12;
-                lfoGain.connect(o2.frequency); 
-                const g2 = ctx.createGain(); g2.gain.value = 0.4; o2.connect(g2); g2.connect(gain); o2.start(startTime); oscs.push(o2);
-            } 
-            else if (mix.type === 'hyper_saw') {
-                const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq * 6; f.Q.value = 2;
+                const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 750;
                 gain.connect(f); outputNode = f;
+                const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = freq;
+                o1.connect(gain); o1.start(startTime); oscs.push(o1);
+            } else if (mix.type === 'hyper_saw') {
                 [0, 8, -8].forEach(detune => {
                     const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; o.detune.value = detune;
                     o.connect(gain); o.start(startTime); oscs.push(o);
                 });
-            }
-            else if (mix.type === 'analog_strings') {
-                const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 2000;
-                gain.connect(f); outputNode = f;
-                const lfo = ctx.createOscillator(); lfo.frequency.value = 4;
-                const lfoG = ctx.createGain(); lfoG.gain.value = 8; lfo.connect(lfoG); lfo.start(startTime);
-                const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq;
-                lfoG.connect(o.frequency); o.connect(gain); o.start(startTime); oscs.push(o);
-            }
-            else if (mix.type === 'glass_pad') {
-                const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = freq * 0.8;
-                gain.connect(f); outputNode = f;
-                [1, 2, 4.5].forEach((ratio, i) => {
-                    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = freq * ratio;
-                    const g = ctx.createGain(); g.gain.value = 1 / (i+1);
-                    o.connect(g); g.connect(gain); o.start(startTime); oscs.push(o);
+            } else {
+                ['sine','triangle','square','sawtooth'].forEach(type => {
+                    if (mix[type] > 0) {
+                        const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+                        const g = ctx.createGain(); g.gain.value = mix[type];
+                        o.connect(g); g.connect(gain); o.start(startTime); oscs.push(o);
+                    }
                 });
             }
-            else if (mix.type === 'deep_pulse') {
-                const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.setValueAtTime(freq * 3, startTime);
-                f.frequency.exponentialRampToValueAtTime(freq, startTime + 2);
-                gain.connect(f); outputNode = f;
-                const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = freq;
-                o.connect(gain); o.start(startTime); oscs.push(o);
-            }
-            else if (mix.type === 'airy_drone') {
-                const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400; f.Q.value = 0.5;
-                const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = freq; 
-                const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = freq; o2.detune.value = 4;
-                const mixGain = ctx.createGain(); mixGain.gain.value = 0.25; 
-                o1.connect(f); o2.connect(f); f.connect(mixGain); outputNode = mixGain;
-                o1.start(startTime); o2.start(startTime); oscs.push(o1, o2);
-            }
-            else {
-                // Default/Simple/Custom
-                const sources = mix.type === 'custom' ? state.customMixValues : mix;
-                const createOsc = (type, vol) => {
-                    const osc = ctx.createOscillator();
-                    osc.type = type; osc.frequency.setValueAtTime(freq, startTime);
-                    const g = ctx.createGain(); g.gain.value = vol;
-                    osc.connect(g); g.connect(gain);
-                    osc.start(startTime);
-                    oscs.push(osc);
-                };
-                if (sources.sine > 0) createOsc('sine', sources.sine);
-                if (sources.triangle > 0) createOsc('triangle', sources.triangle);
-                if (sources.square > 0) createOsc('square', sources.square);
-                if (sources.sawtooth > 0) createOsc('sawtooth', sources.sawtooth);
-            }
 
-
-            // 2. Drone Specific Processing
             if (isDrone) {
-                const lpFilter = ctx.createBiquadFilter();
-                lpFilter.type = "lowpass";
-                lpFilter.frequency.value = 400; 
-                lpFilter.Q.value = 0.5;
-
-
-                const bpFilter = ctx.createBiquadFilter();
-                bpFilter.type = "bandpass";
-                bpFilter.frequency.value = 300; 
-                bpFilter.Q.value = 1.0; 
-
-
-                const droneGain = ctx.createGain();
-                droneGain.gain.value = 0.8; 
-
-
-                outputNode.disconnect(); 
-                outputNode.connect(lpFilter);
-                lpFilter.connect(droneGain);
-                lpFilter.Q.value = 2.0; 
-                outputNode = droneGain;
+                const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 400; lp.Q.value = 4;
+                outputNode.disconnect(); outputNode.connect(lp); outputNode = lp;
             }
-
-
             outputNode.connect(state.gainNode);
             return { oscs, gain };
         }
 
-
         function playTone(id, freq, options = {}) {
             if (!state.audioCtx) return;
-            const ctx = state.audioCtx;
-            if (ctx.state === 'suspended') ctx.resume();
-
-
+            const ctx = state.audioCtx; if (ctx.state === 'suspended') ctx.resume();
             if (state.activeVoices.has(id)) {
                 if (options.slide) {
-                    const voice = state.activeVoices.get(id);
-                    voice.oscs.forEach(o => {
-                        o.frequency.setTargetAtTime(freq, ctx.currentTime, state.droneGlideTime); 
-                    });
+                    state.activeVoices.get(id).oscs.forEach(o => o.frequency.setTargetAtTime(freq, ctx.currentTime, state.droneGlideTime));
                     return;
                 }
                 stopTone(id, true);
             }
-
-
-            let isDrone = false;
-            if (id === 'global_drone') {
-                isDrone = true;
-            }
-
-
-            const voice = createVoice(freq, ctx.currentTime, isDrone);
-
-
+            const voice = createVoice(freq, ctx.currentTime, id === 'global_drone');
             state.activeVoices.set(id, voice);
-
-
-            let el = state.nodeCache.get(id);
-            if (!el) el = document.getElementById(id);
-            if (el) el.classList.add('node-active');
+            updateVisuals(); 
         }
-
 
         function stopTone(id, force = false) {
             if (!state.activeVoices.has(id)) return;
             if (state.sustain && !force && !id.startsWith('bass_') && id !== 'global_drone') return; 
-
-
-            const voice = state.activeVoices.get(id);
-            const ctx = state.audioCtx;
-            let dec = parseFloat(state.decay);
-            if (state.synthMix.decay) dec = state.synthMix.decay;
-
-
+            const voice = state.activeVoices.get(id); const ctx = state.audioCtx;
+            let dec = state.synthMix.decay || parseFloat(state.decay);
             voice.gain.gain.cancelScheduledValues(ctx.currentTime);
             voice.gain.gain.setValueAtTime(voice.gain.gain.value, ctx.currentTime);
             voice.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dec);
-
-
-            const stopTime = ctx.currentTime + dec + 0.1;
-            voice.oscs.forEach(osc => osc.stop(stopTime));
-            
-            let el = state.nodeCache.get(id);
-            if (!el) el = document.getElementById(id);
-            if (el) el.classList.remove('node-active');
-
-
+            voice.oscs.forEach(osc => osc.stop(ctx.currentTime + dec + 0.1));
             state.activeVoices.delete(id);
+            updateVisuals();
         }
-
 
         function stopAllTones() {
-            for (const [id, voice] of state.activeVoices) {
-                if (id !== 'global_drone') stopTone(id, true); 
-            }
+            for (const [id] of state.activeVoices) if (id !== 'global_drone') stopTone(id, true); 
         }
-
 
         function toggleDrone() {
             state.droneEnabled = !state.droneEnabled;
-            const btn = document.getElementById('drone-btn');
-            btn.classList.toggle('active', state.droneEnabled);
-
-
+            document.getElementById('drone-btn').classList.toggle('active', state.droneEnabled);
             if (state.droneEnabled && state.isAudioStarted) {
-                const rootFreq = getFrequency(state.playedRoot.x, state.playedRoot.y, state.playedRoot.z);
-                playTone('global_drone', rootFreq / 2);
+                state.droneCurrentFreq = getFrequency(state.cursor.x, state.cursor.y, state.cursor.z) / 2;
+                playTone('global_drone', state.droneCurrentFreq);
             } else {
-                stopTone('global_drone', true);
+                stopTone('global_drone', true); state.droneCurrentFreq = null;
             }
         }
-
-
-        function updateDroneGlide(val) {
-            state.droneGlideTime = parseFloat(val);
-        }
-
-
-        function triggerBass(rootFreq) {
-            if (!state.bassEnabled) return;
-            const bassId = 'bass_main';
-            if (state.activeVoices.has(bassId)) stopTone(bassId, true);
-            playTone(bassId, rootFreq / 4); 
-        }
-
 
         function toggleSustain() {
             state.sustain = !state.sustain;
-            const susBtn = document.getElementById('sustain-btn');
-            susBtn.classList.toggle('active', state.sustain);
+            document.getElementById('sustain-btn').classList.toggle('active', state.sustain);
             if (!state.sustain) stopAllTones();
         }
 
-
-        const gearBtn = document.getElementById('gear-btn');
-        const settingsMenu = document.getElementById('settings-menu');
-        const presetSelect = document.getElementById('preset-select');
-        const customMixer = document.getElementById('custom-mixer');
-        const vignetteToggle = document.getElementById('vignette-toggle');
-        const volSlider = document.getElementById('master-vol');
-        const peripheralOverlay = document.getElementById('peripheral-overlay');
-        const sliders = { sine: document.getElementById('mix-sine'), triangle: document.getElementById('mix-triangle'), sawtooth: document.getElementById('mix-sawtooth'), square: document.getElementById('mix-square') };
-        const labels = { sine: document.getElementById('val-sine'), triangle: document.getElementById('val-triangle'), sawtooth: document.getElementById('val-sawtooth'), square: document.getElementById('val-square') };
-
-
-        gearBtn.addEventListener('click', (e) => { e.stopPropagation(); settingsMenu.classList.toggle('visible'); });
-        window.addEventListener('click', (e) => { if (!settingsMenu.contains(e.target) && !gearBtn.contains(e.target)) settingsMenu.classList.remove('visible'); });
-
-
-        presetSelect.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'custom') {
-                customMixer.style.display = 'flex';
-                state.synthMix = { type: 'custom' }; 
-            } else {
-                customMixer.style.display = 'none';
-                state.synthMix = SYNTH_PRESETS[val];
-            }
-        });
-
-
-        for (const type in sliders) {
-            sliders[type].addEventListener('input', (e) => {
-                state.customMixValues[type] = parseFloat(e.target.value);
-                labels[type].textContent = Math.round(state.customMixValues[type] * 100) + '%';
-            });
-        }
-
-
-        vignetteToggle.addEventListener('click', () => {
-            state.peripheralEnabled = !state.peripheralEnabled;
-            vignetteToggle.classList.toggle('active', state.peripheralEnabled);
-            vignetteToggle.textContent = state.peripheralEnabled ? "On" : "Off";
-            if(state.peripheralEnabled) {
-                peripheralOverlay.classList.add('active');
-                document.body.classList.add('aberration-active');
-            } else {
-                peripheralOverlay.classList.remove('active');
-                document.body.classList.remove('aberration-active');
-            }
-        });
-
-
-        volSlider.addEventListener('input', (e) => {
-            state.masterVol = parseFloat(e.target.value);
-            if(state.gainNode) state.gainNode.gain.value = state.masterVol;
-        });
-
-
-        document.getElementById('bass-btn').addEventListener('click', (e) => {
-            state.bassEnabled = !state.bassEnabled;
-            e.target.classList.toggle('active', state.bassEnabled);
-            if(!state.bassEnabled) {
-                 stopTone('bass_main', true);
-            }
-        });
-        document.getElementById('drone-btn').addEventListener('click', toggleDrone);
-        
-        const susBtn = document.getElementById('sustain-btn');
-        susBtn.addEventListener('click', toggleSustain);
-
-
-        document.getElementById('drone-glide').addEventListener('input', (e) => {
-            updateDroneGlide(e.target.value);
-        });
-
-
-        // Minimize Logic
-        document.querySelectorAll('.minimize-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const panel = e.target.closest('.panel-box');
-                panel.classList.toggle('minimized');
-                e.target.textContent = panel.classList.contains('minimized') ? '+' : '−';
-            });
-        });
-
-
         function getScreenCoords(x, y, z) {
-            return { x: (x * SPACING_X) + (y * SKEW_OFFSET) + (z * Z_OFFSET_X), y: -(y * SPACING_Y) + (z * Z_OFFSET_Y) };
+            return { x: (x * SPACING_X) + (z * Z_OFFSET_X), y: -(y * SPACING_Y) + (z * Z_OFFSET_Y) };
         }
-
 
         function getGridCoords(worldX, worldY, zLevel) {
-            const shiftedX = worldX - (zLevel * Z_OFFSET_X);
-            const shiftedY = worldY - (zLevel * Z_OFFSET_Y);
-            const y = -shiftedY / SPACING_Y;
-            const x = (shiftedX - (y * SKEW_OFFSET)) / SPACING_X;
-            return { x, y };
+            const sx = worldX - (zLevel * Z_OFFSET_X);
+            const sy = worldY - (zLevel * Z_OFFSET_Y);
+            return { x: sx / SPACING_X, y: -sy / SPACING_Y };
         }
 
-
         function animate() {
-            let needsRender = false;
-            if (Math.abs(state.targetZoom - state.zoom) > 0.0001) { state.zoom += (state.targetZoom - state.zoom) * 0.3; needsRender = true; }
-            const dx = state.targetViewX - state.viewX;
-            const dy = state.targetViewY - state.viewY;
-            if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) { state.viewX += dx * 0.15; state.viewY += dy * 0.15; needsRender = true; }
-
-
+            state.zoom += (state.targetZoom - state.zoom) * 0.15;
+            state.viewX += (state.targetViewX - state.viewX) * 0.12;
+            state.viewY += (state.targetViewY - state.viewY) * 0.12;
             const targetPos = getScreenCoords(state.cursor.x, state.cursor.y, state.cursor.z);
-            const curDx = targetPos.x - state.visualCursor.x;
-            const curDy = targetPos.y - state.visualCursor.y;
+            state.visualCursor.x += (targetPos.x - state.visualCursor.x) * 0.2;
+            state.visualCursor.y += (targetPos.y - state.visualCursor.y) * 0.2;
             
-            // Replaced constant speed glide with Asymptotic Averaging (Lerp)
-            // This ensures smooth movement for both short distances (Z steps) and long distances (X/Y steps)
-            state.visualCursor.x += curDx * 0.2;
-            state.visualCursor.y += curDy * 0.2;
+            const tx = -state.viewX * state.zoom + window.innerWidth / 2;
+            const ty = -state.viewY * state.zoom + window.innerHeight / 2;
+            worldGroup.setAttribute('transform', `translate(${tx} ${ty}) scale(${state.zoom})`);
             
-            // Extrusion Line Logic moved OUTSIDE
-            const ghostGroup = document.getElementById('ghost-cursor-group');
-            if (ghostGroup) {
-                ghostGroup.style.display = 'block';
-                ghostGroup.setAttribute('transform', `translate(${state.visualCursor.x}, ${state.visualCursor.y})`);
-                
-                const line = document.getElementById('extrusion-line');
-                const rootScreen = getScreenCoords(state.playedRoot.x, state.playedRoot.y, state.playedRoot.z);
-                
-                const isDifferentZ = state.cursor.z !== state.playedRoot.z;
-                
-                line.setAttribute('x1', rootScreen.x - state.visualCursor.x);
-                line.setAttribute('y1', rootScreen.y - state.visualCursor.y);
-                line.setAttribute('x2', 0);
-                line.setAttribute('y2', 0);
-                
-                line.style.opacity = isDifferentZ ? 0.6 : 0;
+            ghostGroup.style.display = 'block'; ghostGroup.setAttribute('transform', `translate(${state.visualCursor.x}, ${state.visualCursor.y})`);
+            const r = getScreenCoords(state.playedRoot.x, state.playedRoot.y, state.playedRoot.z);
+            extrusionLine.setAttribute('x1', r.x - state.visualCursor.x); extrusionLine.setAttribute('y1', r.y - state.visualCursor.y);
+            extrusionLine.setAttribute('x2', 0); extrusionLine.setAttribute('y2', 0);
+            extrusionLine.style.opacity = state.cursor.z !== state.playedRoot.z ? 0.3 : 0;
+
+            if (Math.hypot(state.viewX - state.lastRenderX, state.viewY - state.lastRenderY) > 50 || 
+                state.cursor.z !== state.lastRenderCursorZ ||
+                state.playedRoot.z !== state.lastRenderZ) {
+                renderGridContent();
             }
-
-
-            if (needsRender || state.isDragging) {
-                const worldGroup = document.getElementById('world-group');
-                const tx = -state.viewX * state.zoom + window.innerWidth / 2;
-                const ty = -state.viewY * state.zoom + window.innerHeight / 2;
-                worldGroup.setAttribute('transform', `translate(${tx} ${ty}) scale(${state.zoom})`);
-            }
-
-
-            const renderDist = Math.hypot(state.viewX - state.lastRenderX, state.viewY - state.lastRenderY);
-            const zoomDiff = Math.abs(state.zoom - state.lastRenderZoom);
-            const zChanged = (state.playedRoot.z !== state.lastRenderZ) || (state.cursor.z !== state.lastRenderCursorZ);
-
-
-            if (renderDist > 100 || zoomDiff > 0.1 || zChanged) renderGridContent();
             requestAnimationFrame(animate);
         }
 
-
-        function showDimensionWarning() {
-            const warningEl = document.getElementById('dimension-warning');
-            warningEl.classList.add('active');
-            setTimeout(() => {
-                warningEl.classList.remove('active');
-            }, 3000);
-        }
-
-
-        function forceRender() { renderGridContent(); }
-
-
-        function renderGridContent() {
-            // Check for Z-level change BEFORE updating tracking variables
-            const ghostZ = state.cursor.z;
-            // A Z-transition occurs if the ghost Z level changed since the last frame
-            const isTransitionFrame = ghostZ !== state.lastRenderCursorZ;
-            
-            state.lastRenderX = state.viewX; state.lastRenderY = state.viewY; state.lastRenderZoom = state.zoom;
-            state.lastRenderZ = state.playedRoot.z; state.lastRenderCursorZ = state.cursor.z;
-
-
-            const nodesGroup = document.getElementById('grid-nodes');
-            const linesGroup = document.getElementById('grid-lines'); 
-            const halfW = (window.innerWidth / 2) / state.zoom;
-            const halfH = (window.innerHeight / 2) / state.zoom;
-            const buffer = RENDER_BUFFER / state.zoom;
-            const left = state.viewX - halfW - buffer; const right = state.viewX + halfW + buffer;
-            const top = state.viewY - halfH - buffer; const bottom = state.viewY + halfH + buffer;
-
-
-            const activeZ = state.playedRoot.z;
-            const planes = [activeZ];
-            if (ghostZ !== activeZ) planes.push(ghostZ);
-
-
-            const currentVisibleKeys = new Set();
-            const isGhostActive = ghostZ !== activeZ;
-
-
-            planes.forEach(zLevel => {
-                const corners = [ getGridCoords(left, top, zLevel), getGridCoords(right, top, zLevel), getGridCoords(right, bottom, zLevel), getGridCoords(left, bottom, zLevel) ];
-                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                corners.forEach(c => { minX = Math.min(minX, Math.floor(c.x)); maxX = Math.max(maxX, Math.ceil(c.x)); minY = Math.min(minY, Math.floor(c.y)); maxY = Math.max(maxY, Math.ceil(c.y)); });
-
-
-                for (let y = minY; y <= maxY; y++) {
-                    for (let x = minX; x <= maxX; x++) {
-                        const id = `node_${x}_${y}_${zLevel}`; 
-                        currentVisibleKeys.add(id);
-                        if (!state.nodeCache.has(id)) {
-                            // Animation Logic:
-                            // 1. Is this a node on the ghost layer?
-                            // 2. Flash if it's the very first time ever.
-                            // 3. Subtle fade if we just moved Z (not first time).
-                            // 4. No animation if just panning.
-                            
-                            let animClass = '';
-                            const isGhostNode = (zLevel === ghostZ && isGhostActive);
-
-
-                            if (isGhostNode) {
-                                if (!state.hasFlashedGhost) {
-                                    animClass = 'node-ghost-flash';
-                                } else if (isTransitionFrame) {
-                                    animClass = 'node-ghost-subtle';
-                                }
-                            }
-                            
-                            createNodeElement(x, y, zLevel, nodesGroup, animClass);
-                            createLine(x, y, zLevel, x+1, y, zLevel, 'h', linesGroup);
-                            createLine(x, y, zLevel, x, y+1, zLevel, 'v', linesGroup);
-                        }
-                    }
-                }
-            });
-            
-            // Mark flash as seen if we just showed it
-            if (isGhostActive && !state.hasFlashedGhost) {
-                state.hasFlashedGhost = true;
-                showDimensionWarning(); // Trigger warning
-            }
-
-
-            for (const [id, el] of state.nodeCache) {
-                if (!currentVisibleKeys.has(id)) {
-                    el.remove(); state.nodeCache.delete(id);
-                    const parts = id.split('_');
-                    removeLine(parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), 'h');
-                    removeLine(parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), 'v');
-                } else {
-                    const parts = id.split('_');
-                    const z = parseInt(parts[3]);
-                    if (z === ghostZ && z !== activeZ) el.classList.add('ghost-plane');
-                    else el.classList.remove('ghost-plane');
-                }
-            }
-            
-            for (const [id, line] of state.lineCache) {
-                const parts = id.split('_');
-                const z = parseInt(parts[3]);
-                if (z === ghostZ && z !== activeZ) line.classList.add('ghost-plane');
-                else line.classList.remove('ghost-plane');
-            }
-
-
-            updateVisuals();
-            state.activeVoices.forEach((_, id) => {
-                let el = state.nodeCache.get(id);
-                if (!el) el = document.getElementById(id);
-                if (el) el.classList.add('node-active');
-            });
-        }
-
-
-        function createNodeElement(x, y, z, container, animationClass = '') {
-            const pos = getScreenCoords(x, y, z);
+        function createNode(x, y, z, container) {
+            const p = getScreenCoords(x, y, z);
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("transform", `translate(${pos.x}, ${pos.y})`);
-            const id = `node_${x}_${y}_${z}`;
-            g.setAttribute("id", id);
-            g.style.cursor = "pointer";
-
-
-            // Apply animation class if provided
-            if (animationClass) {
-                g.classList.add(animationClass);
-            }
-
-
-            const selector = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            selector.setAttribute("r", "22"); selector.setAttribute("class", "node-selector"); g.appendChild(selector);
-            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            circle.setAttribute("r", "18"); circle.setAttribute("class", "node-circle"); g.appendChild(circle);
+            g.setAttribute("transform", `translate(${p.x}, ${p.y})`); g.setAttribute("id", `node_${x}_${y}_${z}`);
+            const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            c.setAttribute("r", "16"); c.setAttribute("class", "node-circle"); g.appendChild(c);
             
             const fo = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
             fo.setAttribute("x", "-20"); fo.setAttribute("y", "-10"); fo.setAttribute("width", "40"); fo.setAttribute("height", "20");
-            const div = document.createElement("div");
-            div.className = "node-label-container";
-            const span = document.createElement("span");
-            span.className = "node-label";
-            span.innerHTML = getNoteLabelHTML(x, y, z);
-            div.appendChild(span); fo.appendChild(div); g.appendChild(fo);
-
-
-            g.onmousedown = (e) => {
-                e.stopPropagation();
-                state.playedRoot = {x, y, z}; state.cursor = {x, y, z};
-                playChord(); centerCameraOnChord(); forceRender(); 
-            };
+            
+            const d = document.createElement("div"); 
+            d.style.width = "100%"; d.style.height = "100%";
+            d.style.display = "flex"; d.style.justifyContent = "center"; d.style.alignItems = "center";
+            
+            const s = document.createElement("span"); s.className = "node-label"; s.innerHTML = getNoteLabelHTML(x,y,z);
+            d.appendChild(s); fo.appendChild(d); g.appendChild(fo);
+            
+            g.onmousedown = (e) => { e.stopPropagation(); state.playedRoot={x,y,z}; state.cursor={x,y,z}; playChord(); centerCameraOnChord(); };
             g.onmouseup = () => { if(!state.sustain) stopAllTones(); };
-            container.appendChild(g); state.nodeCache.set(id, g);
+            container.appendChild(g); state.nodeCache.set(`node_${x}_${y}_${z}`, g);
         }
-
 
         function createLine(x1, y1, z1, x2, y2, z2, type, container) {
-            const id = `line_${x1}_${y1}_${z1}_${type}`;
-            if (state.lineCache.has(id)) return;
             const p1 = getScreenCoords(x1, y1, z1); const p2 = getScreenCoords(x2, y2, z2);
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("id", id); line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y); line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
-            line.setAttribute("class", "connection-line");
-            container.appendChild(line); state.lineCache.set(id, line);
+            const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            l.setAttribute("x1", p1.x); l.setAttribute("y1", p1.y); l.setAttribute("x2", p2.x); l.setAttribute("y2", p2.y);
+            l.setAttribute("class", "connection-line"); container.appendChild(l);
+            state.lineCache.set(`line_${x1}_${y1}_${z1}_${type}`, l);
         }
 
-
-        function removeLine(x, y, z, type) {
-            const id = `line_${x}_${y}_${z}_${type}`;
-            const line = state.lineCache.get(id);
-            if (line) { line.remove(); state.lineCache.delete(id); }
-        }
-
-
-        function renderSpecialNode(type, rootX, rootY, dz) {
-            const container = document.getElementById('special-nodes');
-            const targetZ = state.playedRoot.z + dz;
-            // Fixed: Unique ID using absolute coordinates to prevent audio recycling glitches
-            const id = `node_special_${rootX}_${rootY}_${targetZ}`;
-            const rootPos = getScreenCoords(rootX, rootY, targetZ);
-            
+        // Render special nodes (e.g. 7th harmonic out of plane)
+        function renderSpecialNode(x, y, z) {
+            const id = `node_special_${x}_${y}_${z}`;
             let g = document.getElementById(id);
             if (!g) {
+                const p = getScreenCoords(x, y, z);
                 g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                g.setAttribute("id", id); g.setAttribute("class", "node-off-layer"); 
-                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                circle.setAttribute("r", "14"); g.appendChild(circle);
+                g.setAttribute("transform", `translate(${p.x}, ${p.y})`); 
+                g.setAttribute("id", id);
+                g.classList.add('node-special');
+                
+                const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("r", "14"); c.setAttribute("class", "node-circle"); g.appendChild(c);
+                
                 const fo = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
                 fo.setAttribute("x", "-20"); fo.setAttribute("y", "-10"); fo.setAttribute("width", "40"); fo.setAttribute("height", "20");
-                const div = document.createElement("div");
-                div.className = "node-label-container";
-                const span = document.createElement("span");
-                span.className = "node-label";
-                div.appendChild(span); fo.appendChild(div); g.appendChild(fo); container.appendChild(g);
+                const d = document.createElement("div"); 
+                d.style.width="100%"; d.style.height="100%"; d.style.display="flex"; d.style.justifyContent="center"; d.style.alignItems="center";
+                const s = document.createElement("span"); s.className = "node-label"; s.innerHTML = getNoteLabelHTML(x,y,z);
+                d.appendChild(s); fo.appendChild(d); g.appendChild(fo);
+                
+                specialNodesG.appendChild(g);
+                state.nodeCache.set(id, g); // Track it so updateVisuals works
             }
-            const labelSpan = g.querySelector('.node-label');
-            labelSpan.innerHTML = getNoteLabelHTML(rootX, rootY, targetZ);
-            const hue = getNoteHue(rootX, rootY, targetZ);
-            g.style.color = `hsl(${hue}, 100%, 50%)`;
-            const circle = g.querySelector('circle');
-            circle.style.stroke = `hsl(${hue}, 100%, 50%)`;
-            circle.style.fill = `hsla(${hue}, 100%, 50%, 0.1)`;
-            g.setAttribute("transform", `translate(${rootPos.x}, ${rootPos.y})`);
-            g.style.opacity = 0.7;
-            return { id: id }; 
+            return id;
         }
 
-
         function playChord() {
-            const rootX = state.playedRoot.x; const rootY = state.playedRoot.y; const rootZ = state.playedRoot.z;
-            const chordDef = CHORD_TYPES[state.currentChordKey].shape;
-            const toPlay = []; const newIds = new Set();
-            document.getElementById('special-nodes').innerHTML = '';
+            const root = state.playedRoot; const chord = CHORD_TYPES[state.currentChordKey].shape;
+            const ids = new Set(); 
+            
+            // Clear old special nodes if any from previous play
+            // Simple approach: clear DOM and cache entries for specials
+            Array.from(specialNodesG.children).forEach(child => {
+                state.nodeCache.delete(child.id);
+                child.remove();
+            });
 
-
-            chordDef.forEach(item => {
-                const dz = item.dz || 0;
-                const tx = rootX + item.dx; const ty = rootY + item.dy; const tz = rootZ + dz;
-                const freq = getFrequency(tx, ty, tz);
+            chord.forEach(n => {
+                const tx=root.x+n.dx, ty=root.y+n.dy, tz=root.z+(n.dz||0); 
                 let id;
-                if (dz !== 0) { const nodeData = renderSpecialNode('z-node', tx, ty, dz); id = nodeData.id; }
-                else { id = `node_${tx}_${ty}_${tz}`; }
-                toPlay.push({ id, freq }); newIds.add(id);
+                // If it's a "special" node (dz != 0)
+                if (n.dz && n.dz !== 0) {
+                    id = renderSpecialNode(tx, ty, tz);
+                } else {
+                    id = `node_${tx}_${ty}_${tz}`;
+                }
+                playTone(id, getFrequency(tx,ty,tz)); ids.add(id);
             });
 
-
-            // SUSTAIN FIX: Stop all notes NOT in newIds
-            // Only stop notes that are currently playing AND not in the new chord
-            // Retain sustain for notes that persist
-            for (const [id] of state.activeVoices) {
-                if (id === 'global_drone' || id.startsWith('bass_')) continue; 
-                
-                if (!newIds.has(id)) {
-                    stopTone(id, true); // Force stop old notes
-                }
-            }
-
-
-            if (state.bassEnabled) {
-                const rootFreq = getFrequency(rootX, rootY, rootZ);
-                triggerBass(rootFreq);
-            }
+            for (const [id] of state.activeVoices) if (id !== 'global_drone' && !ids.has(id)) stopTone(id, true);
+            if (state.bassEnabled) playTone('bass_main', getFrequency(root.x, root.y, root.z)/4);
             if (state.droneEnabled) {
-                const rootFreq = getFrequency(rootX, rootY, rootZ);
-                playTone('global_drone', rootFreq / 2, { slide: true });
+                const opts = chord.map(n => getFrequency(root.x+n.dx, root.y+n.dy, root.z+(n.dz||0))/2);
+                state.droneCurrentFreq = state.droneCurrentFreq ? opts.reduce((a,b)=>Math.abs(b-state.droneCurrentFreq)<Math.abs(a-state.droneCurrentFreq)?b:a) : opts[0];
+                playTone('global_drone', state.droneCurrentFreq, { slide: true });
             }
-
-
-            toPlay.forEach(note => { 
-                // Play new notes or re-attack if sustain is off
-                if (!state.sustain || !state.activeVoices.has(note.id)) {
-                    playTone(note.id, note.freq); 
-                }
-            });
+            
+            showRatio(root);
             updateVisuals();
         }
 
-
         function updateVisuals() {
+            // Reset all nodes
             state.nodeCache.forEach(g => {
-                g.classList.remove('node-highlight', 'node-target');
+                g.classList.remove('node-highlight', 'node-target', 'node-active'); 
+                const c = g.querySelector('.node-circle'); 
+                if(c) { 
+                    c.style.stroke='var(--white)'; 
+                    c.style.fill='#010409';
+                    c.style.fillOpacity = ''; 
+                    c.style.filter = '';
+                    c.style.strokeWidth = '';
+                    c.style.strokeOpacity = '';
+                }
                 g.style.color = ''; 
-                const circle = g.querySelector('.node-circle');
-                if (circle) { circle.style.stroke = ''; circle.style.fill = ''; }
+            });
+            
+            const root = state.playedRoot;
+            
+            // Highlight Current Chord Shape
+            CHORD_TYPES[state.currentChordKey].shape.forEach(n => {
+                const tx = root.x + n.dx; const ty = root.y + n.dy; const tz = root.z + (n.dz||0);
+                let g = state.nodeCache.get(`node_${tx}_${ty}_${tz}`);
+                if (!g && n.dz) g = state.nodeCache.get(`node_special_${tx}_${ty}_${tz}`);
+
+                if(g) {
+                    g.classList.add('node-highlight'); 
+                    const hue = getNoteHue(tx, ty, tz);
+                    const color = `hsl(${hue}, 100%, 65%)`;
+                    const c = g.querySelector('.node-circle');
+                    if(c) {
+                        c.style.stroke = color;
+                        c.style.filter = `drop-shadow(0 0 6px ${color})`;
+                    }
+                    g.style.color = color;
+                }
             });
 
+            // Mark Cursor Target
+            const target = state.nodeCache.get(`node_${state.cursor.x}_${state.cursor.y}_${state.cursor.z}`);
+            if(target) target.classList.add('node-target');
 
-            const targetId = `node_${state.cursor.x}_${state.cursor.y}_${state.cursor.z}`;
-            const targetEl = state.nodeCache.get(targetId);
-            if (targetEl) targetEl.classList.add('node-target');
+            // Apply "Active" State - Neon Flash
+            state.activeVoices.forEach((_, id) => {
+                const el = state.nodeCache.get(id);
+                if(el) {
+                    el.classList.add('node-active');
+                    // Parse ID to get coords for color
+                    let x, y, z;
+                    if (id.startsWith('node_special_')) {
+                        const parts = id.split('_');
+                        x = parseInt(parts[2]); y = parseInt(parts[3]); z = parseInt(parts[4]);
+                    } else {
+                        const parts = id.split('_');
+                        if(parts.length >= 4) {
+                            x = parseInt(parts[1]); y = parseInt(parts[2]); z = parseInt(parts[3]);
+                        }
+                    }
 
-
-            const rootX = state.playedRoot.x; const rootY = state.playedRoot.y; const rootZ = state.playedRoot.z;
-            const chordDef = CHORD_TYPES[state.currentChordKey].shape;
-
-
-            chordDef.forEach(item => {
-                if ((item.dz || 0) === 0) {
-                    const tx = rootX + item.dx; const ty = rootY + item.dy;
-                    const id = `node_${tx}_${ty}_${rootZ}`;
-                    const g = state.nodeCache.get(id);
-                    if (g) {
-                        g.classList.add('node-highlight');
-                        const hue = getNoteHue(tx, ty, rootZ);
-                        const color = `hsl(${hue}, 100%, 50%)`;
-                        g.style.color = color; 
-                        const circle = g.querySelector('.node-circle');
-                        if (circle) { circle.style.stroke = color; circle.style.fill = `hsla(${hue}, 100%, 50%, 0.25)`; }
+                    if (x !== undefined) {
+                        const hue = getNoteHue(x, y, z);
+                        const color = `hsl(${hue}, 100%, 60%)`;
+                        el.style.color = color; 
                     }
                 }
             });
         }
 
-
         function centerCameraOnChord() {
+            // Calculate Centroid of the active chord shape
             const shape = CHORD_TYPES[state.currentChordKey].shape;
-            let sumDx = 0; let sumDy = 0; let count = 0;
-            shape.forEach(n => { if ((n.dz || 0) === 0) { sumDx += n.dx; sumDy += n.dy; count++; } });
-            const avgDx = count > 0 ? sumDx / count : 0;
-            const avgDy = count > 0 ? sumDy / count : 0;
-            const centroidX = state.playedRoot.x + avgDx;
-            const centroidY = state.playedRoot.y + avgDy;
-            const pos = getScreenCoords(centroidX, centroidY, state.playedRoot.z);
-            state.targetViewX = pos.x; state.targetViewY = pos.y + 40; 
-        }
+            let sumX = 0, sumY = 0, count = 0;
+            shape.forEach(n => {
+                // We use all nodes including dz for centroid, assuming projection
+                sumX += n.dx; 
+                sumY += n.dy; 
+                count++;
+            });
+            const avgX = count ? sumX / count : 0;
+            const avgY = count ? sumY / count : 0;
 
+            const pos = getScreenCoords(state.playedRoot.x + avgX, state.playedRoot.y + avgY, state.playedRoot.z);
+            
+            // Check if CHORD panel is open (not minimized)
+            const chordPanelOpen = !document.querySelector('#chord-panel').classList.contains('minimized');
+            
+            state.targetViewX = pos.x; 
+            // Move camera UP means subtracting Y (or adding positive offset to target if Y inverted)
+            // Actually, to move content UP, we increase viewY (camera goes down).
+            // User requested: "up a bit when the bottom tabs are open".
+            // So if open -> shift content up -> camera moves down -> larger Y.
+            state.targetViewY = pos.y + (chordPanelOpen ? 120 : 20); 
+        }
 
         function setChordType(key) {
-            if (!CHORD_TYPES[key]) return;
             state.currentChordKey = key;
-            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.toggle('active', btn.dataset.key === key); });
-            // Only update visuals, do NOT auto-play
-            updateVisuals(); 
-            centerCameraOnChord(); 
+            document.querySelectorAll('.hud-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+            updateVisuals(); centerCameraOnChord(); 
         }
 
+        /* --- Settings Module Logic --- */
+        const settingsModule = document.getElementById('settings-module');
+        const gearIcon = document.getElementById('gear-icon');
+        let hoverTimeout;
 
-        document.querySelectorAll('.chord-btn').forEach(btn => { btn.addEventListener('click', (e) => { const key = e.currentTarget.dataset.key; setChordType(key); }); });
-
-
-        window.addEventListener('keydown', (e) => {
-            if (!state.isAudioStarted) return;
-            const k = e.key.toLowerCase();
-            
-            if (CHORD_TYPES[k]) { setChordType(k); return; }
-            
-            // Toggles
-            if (k === 'b') {
-                state.bassEnabled = !state.bassEnabled;
-                document.getElementById('bass-btn').classList.toggle('active', state.bassEnabled);
-                if(state.bassEnabled) {
-                     const rootFreq = getFrequency(state.playedRoot.x, state.playedRoot.y, state.playedRoot.z);
-                     triggerBass(rootFreq);
-                } else {
-                     stopTone('bass_main', true);
-                }
-                return;
-            }
-            if (k === 'd') {
-                toggleDrone();
-                return;
-            }
-            if (k === 's') {
-                toggleSustain();
-                return;
-            }
-
-
-            if (e.key === '.' || e.key === '>') { state.cursor.z += 1; updateVisuals(); forceRender(); return; }
-            if (e.key === ',' || e.key === '<') { state.cursor.z -= 1; updateVisuals(); forceRender(); return; }
-            let changed = false;
-            if (e.key === 'ArrowUp') { state.cursor.y += 1; changed = true; }
-            if (e.key === 'ArrowDown') { state.cursor.y -= 1; changed = true; }
-            if (e.key === 'ArrowRight') { state.cursor.x += 1; changed = true; }
-            if (e.key === 'ArrowLeft') { state.cursor.x -= 1; changed = true; }
-            if (changed) { e.preventDefault(); updateVisuals(); }
-            if (e.code === 'Space') {
-                e.preventDefault();
-                state.playedRoot = { ...state.cursor }; 
-                playChord(); centerCameraOnChord(); forceRender(); 
+        settingsModule.addEventListener('click', (e) => {
+            if (e.target.closest('#settings-content')) return; 
+            if (!settingsModule.classList.contains('expanded')) {
+                settingsModule.classList.add('expanded');
             }
         });
 
+        settingsModule.addEventListener('mouseleave', () => {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = setTimeout(() => {
+                if (settingsModule.classList.contains('expanded')) {
+                    settingsModule.classList.remove('expanded');
+                    gearIcon.classList.remove('sprouting');
+                    void gearIcon.offsetWidth; 
+                    gearIcon.classList.add('sprouting');
+                }
+            }, 300);
+        });
 
-        window.addEventListener('keyup', (e) => { if (e.code === 'Space' && !state.sustain) stopAllTones(); });
-        const container = document.getElementById('canvas-container');
-        container.addEventListener('mousedown', e => { state.isDragging = true; state.lastMouse = { x: e.clientX, y: e.clientY }; });
-        window.addEventListener('mousemove', e => { if (state.isDragging) { const dx = e.clientX - state.lastMouse.x; const dy = e.clientY - state.lastMouse.y; state.targetViewX -= dx / state.zoom; state.targetViewY -= dy / state.zoom; state.viewX = state.targetViewX; state.viewY = state.targetViewY; state.lastMouse = { x: e.clientX, y: e.clientY }; } });
-        window.addEventListener('mouseup', () => state.isDragging = false);
-        container.addEventListener('wheel', (e) => { 
-            e.preventDefault(); 
-            const sensitivity = 0.001; 
-            const delta = -e.deltaY * sensitivity; 
-            let newZoom = state.targetZoom + delta; 
-            // Range modified: 1.1 to 1.9 (4 notches in/out from 1.5)
-            newZoom = Math.max(1.1, Math.min(newZoom, 1.9)); 
-            state.targetZoom = newZoom; 
-        }, { passive: false });
+        settingsModule.addEventListener('mouseenter', () => {
+            clearTimeout(hoverTimeout);
+        });
+
+        document.getElementById('vignette-toggle').onclick = (e) => {
+            state.peripheralEnabled = !state.peripheralEnabled;
+            e.target.innerText = state.peripheralEnabled ? "On" : "Off";
+            document.getElementById('peripheral-overlay').classList.toggle('active', state.peripheralEnabled);
+        };
         
-        document.getElementById('start-btn').addEventListener('click', initAudio);
-        document.getElementById('atk-slider').addEventListener('input', e => state.attack = e.target.value);
-        document.getElementById('dec-slider').addEventListener('input', e => state.decay = e.target.value);
+        document.getElementById('ratio-toggle').onclick = (e) => {
+            state.ratioEnabled = !state.ratioEnabled;
+            e.target.innerText = state.ratioEnabled ? "On" : "Off";
+        };
+
+        document.getElementById('master-vol').oninput = e => state.masterVol = e.target.value;
+        document.getElementById('atk-slider').oninput = e => state.attack = e.target.value;
+        document.getElementById('dec-slider').oninput = e => state.decay = e.target.value;
+        document.getElementById('drone-glide').oninput = e => state.droneGlideTime = e.target.value / 1000;
+        document.getElementById('bass-btn').onclick = e => {
+            state.bassEnabled = !state.bassEnabled;
+            e.target.classList.toggle('active', state.bassEnabled);
+            if (!state.bassEnabled) stopTone('bass_main', true);
+        };
+        document.getElementById('drone-btn').onclick = toggleDrone;
+        document.getElementById('sustain-btn').onclick = toggleSustain;
+        
+        document.querySelectorAll('.minimize-btn').forEach(btn => btn.onclick = e => {
+            e.stopPropagation();
+            const p = e.currentTarget.closest('.panel-box'); 
+            p.classList.toggle('minimized');
+            e.currentTarget.innerHTML = p.classList.contains('minimized') ? 
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>' : 
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>';
+            centerCameraOnChord(); 
+        });
+
+        document.querySelectorAll('.panel-box').forEach(panel => {
+            panel.addEventListener('click', (e) => {
+                if(panel.classList.contains('minimized')) {
+                    panel.classList.remove('minimized');
+                    const btn = panel.querySelector('.minimize-btn');
+                    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>';
+                    centerCameraOnChord();
+                }
+            });
+        });
+
+        document.getElementById('preset-select').onchange = e => state.synthMix = SYNTH_PRESETS[e.target.value];
+        document.getElementById('start-btn').onclick = initAudio;
+
+        window.addEventListener('keydown', e => {
+            if (!state.isAudioStarted) return;
+            const k = e.key.toLowerCase();
+            if (CHORD_TYPES[k]) setChordType(k);
+            if (k === 'b') { state.bassEnabled = !state.bassEnabled; document.getElementById('bass-btn').classList.toggle('active', state.bassEnabled); }
+            if (k === 'd') toggleDrone(); if (k === 's') toggleSustain();
+            if (e.key === '.' || e.key === '>') { state.cursor.z++; } 
+            if (e.key === ',' || e.key === '<') { state.cursor.z--; } 
+            if (e.key === 'ArrowUp') state.cursor.y++; if (e.key === 'ArrowDown') state.cursor.y--;
+            if (e.key === 'ArrowRight') state.cursor.x++; if (e.key === 'ArrowLeft') state.cursor.x--;
+            if (e.code === 'Space') { e.preventDefault(); state.playedRoot = {...state.cursor}; playChord(); centerCameraOnChord(); }
+            updateVisuals();
+        });
+
+        window.addEventListener('keyup', e => { if (e.code === 'Space' && !state.sustain) stopAllTones(); });
+        
+        container.addEventListener('mousedown', e => { state.isDragging = true; state.lastMouse = { x: e.clientX, y: e.clientY }; });
+        window.addEventListener('mousemove', e => { if (state.isDragging) { state.targetViewX -= (e.clientX - state.lastMouse.x) / state.zoom; state.targetViewY -= (e.clientY - state.lastMouse.y) / state.zoom; state.lastMouse = { x: e.clientX, y: e.clientY }; } });
+        window.addEventListener('mouseup', () => state.isDragging = false);
+        container.addEventListener('wheel', e => { e.preventDefault(); state.targetZoom = Math.max(1.1, Math.min(state.targetZoom - e.deltaY * 0.001, 2.8)); }, { passive: false });
     </script>
 </body>
-
 </html>
